@@ -28,11 +28,11 @@ function doGet() {
   output.setContentSecurityPolicy(
     [
       "default-src 'self' https://www.gstatic.com https://apis.google.com",
-      "script-src 'self' 'unsafe-inline' https://www.gstatic.com https://apis.google.com",
+      "script-src 'self' 'unsafe-inline' https://www.gstatic.com https://apis.google.com https://script.google.com https://script.googleusercontent.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data:",
       "font-src 'self' https://fonts.gstatic.com",
-      "connect-src 'self' https://script.google.com",
+      "connect-src 'self' https://script.google.com https://script.googleusercontent.com https://apis.google.com",
       "frame-src 'self'",
       "object-src 'none'",
     ].join('; '),
