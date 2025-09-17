@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <base target="_top" />
+    <title>COD Orders Filtreleri</title>
+    <style>
+      body {
+        font-family: 'Roboto', Arial, sans-serif;
+        margin: 0;
+        padding: 16px;
+        background: #f8f9fa;
+        color: #202124;
+      }
+
+      h1 {
+        font-size: 18px;
+        margin: 0 0 12px;
+      }
+
+      p.status {
+        font-size: 13px;
+        margin: 0 0 16px;
+        color: #5f6368;
+      }
+
+      p.status.error {
+        color: #d93025;
+      }
+
+      .filters {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        max-height: 55vh;
+        overflow-y: auto;
+        padding-right: 4px;
+      }
+
+      label {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #5f6368;
+        margin-bottom: 4px;
+        display: block;
+      }
+
+      input[type='text'] {
+        width: 100%;
+        padding: 8px 10px;
+        border-radius: 6px;
+        border: 1px solid #dadce0;
+        font-size: 13px;
+      }
+
+      .actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 16px;
+      }
+
+      button {
+        border-radius: 6px;
+        border: 1px solid #dadce0;
+        padding: 8px 14px;
+        font-size: 13px;
+        cursor: pointer;
+        background: #fff;
+        color: #1a73e8;
+      }
+
+      button.primary {
+        background: #1a73e8;
+        color: #fff;
+        border-color: #1a73e8;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>COD Orders Filtreleri</h1>
+    <p class="status" id="status">Her sütun için aramak istediğiniz metni girin.</p>
+    <div class="filters" id="filters">
+      <? for (var i = 0; i < headers.length; i++) { var header = headers[i]; ?>
+      <div class="filter-field">
+        <label for="filter-<?= header ?>"><?= header ?></label>
+        <input type="text" id="filter-<?= header ?>" data-header="<?= header ?>" placeholder="Metin arayın" />
+      </div>
+      <? } ?>
+    </div>
+    <div class="actions">
+      <button type="button" id="clear">Temizle</button>
+      <button type="button" class="primary" id="apply">Filtrele</button>
+    </div>
+
+    <script>
+      const HEADERS = <?= JSON.stringify(headers) ?>;
+      const statusEl = document.getElementById('status');
+
+      function getFilters() {
+        const inputs = document.querySelectorAll('#filters input');
+        return Array.from(inputs).reduce((acc, input) => {
+          const value = input.value.trim();
+          if (value) {
+            acc[input.dataset.header] = value;
+          }
+          return acc;
+        }, {});
+      }
+
+      function setStatus(message, isError = false) {
+        statusEl.textContent = message;
+        statusEl.classList.toggle('error', isError);
+      }
+
+      document.getElementById('apply').addEventListener('click', () => {
+        const filters = getFilters();
+        setStatus('Filtreler uygulanıyor...');
+        google.script.run
+          .withSuccessHandler((applied) => {
+            if (applied) {
+              setStatus(`Filtreler uygulandı (${applied} sütun).`);
+            } else {
+              setStatus('Aktif filtre yok; tüm satırlar gösteriliyor.');
+            }
+          })
+          .withFailureHandler((error) => {
+            console.error(error);
+            setStatus('Filtre uygulanamadı. Lütfen tekrar deneyin.', true);
+          })
+          .applyFilters(filters);
+      });
+
+      document.getElementById('clear').addEventListener('click', () => {
+        document.querySelectorAll('#filters input').forEach((input) => {
+          input.value = '';
+        });
+        setStatus('Filtreler kaldırılıyor...');
+        google.script.run
+          .withSuccessHandler(() => {
+            setStatus('Filtreler kaldırıldı.');
+          })
+          .withFailureHandler((error) => {
+            console.error(error);
+            setStatus('Filtreler kaldırılırken bir hata oluştu.', true);
+          })
+          .clearFilters();
+      });
+    </script>
+  </body>
+</html>
