@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <base target="_top" />
+    <title>COD Orders Dashboard</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: 'Roboto', Arial, sans-serif;
+      }
+
+      body {
+        margin: 0;
+        background: #f8f9fa;
+        color: #202124;
+      }
+
+      header {
+        background: #1a73e8;
+        color: #fff;
+        padding: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      header h1 {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 500;
+      }
+
+      header button {
+        background: rgba(255, 255, 255, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.35);
+        border-radius: 6px;
+        color: #fff;
+        cursor: pointer;
+        font-size: 14px;
+        padding: 8px 14px;
+        transition: background 0.2s ease;
+      }
+
+      header button:hover {
+        background: rgba(255, 255, 255, 0.25);
+      }
+
+      main {
+        padding: 24px;
+      }
+
+      .panel {
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 1px 3px rgba(60, 64, 67, 0.15);
+        padding: 20px;
+        margin-bottom: 24px;
+      }
+
+      .filters {
+        display: grid;
+        gap: 16px;
+      }
+
+      @media (min-width: 768px) {
+        .filters {
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        }
+      }
+
+      .filter-field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .filter-field label {
+        font-size: 12px;
+        font-weight: 500;
+        color: #5f6368;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .filter-field input {
+        border: 1px solid #dadce0;
+        border-radius: 6px;
+        padding: 8px 10px;
+        font-size: 14px;
+      }
+
+      .filter-actions {
+        margin-top: 16px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+      }
+
+      .filter-actions button {
+        border-radius: 6px;
+        border: 1px solid #dadce0;
+        background: #fff;
+        color: #1a73e8;
+        cursor: pointer;
+        padding: 8px 14px;
+        font-size: 13px;
+      }
+
+      .filter-actions button.primary {
+        background: #1a73e8;
+        border-color: #1a73e8;
+        color: #fff;
+      }
+
+      .status {
+        margin-bottom: 12px;
+        font-size: 14px;
+        color: #5f6368;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #fff;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(60, 64, 67, 0.15);
+      }
+
+      thead {
+        background: #f1f3f4;
+      }
+
+      th,
+      td {
+        padding: 12px 14px;
+        font-size: 13px;
+        text-align: left;
+        border-bottom: 1px solid #e0e0e0;
+        vertical-align: top;
+      }
+
+      tbody tr:hover {
+        background: #f8fbff;
+      }
+
+      .empty-state {
+        padding: 32px;
+        text-align: center;
+        color: #5f6368;
+      }
+
+      .loader {
+        display: inline-block;
+        width: 18px;
+        height: 18px;
+        border: 3px solid rgba(26, 115, 232, 0.2);
+        border-top-color: #1a73e8;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-right: 8px;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>COD Orders Dashboard</h1>
+      <button id="refresh">Verileri Yenile</button>
+    </header>
+    <main>
+      <section class="panel">
+        <h2>Filtreler</h2>
+        <p class="status" id="status">Siparişler yükleniyor...</p>
+        <div class="filters" id="filters"></div>
+        <div class="filter-actions">
+          <button type="button" id="clear">Temizle</button>
+          <button type="button" class="primary" id="apply">Filtrele</button>
+        </div>
+      </section>
+
+      <section>
+        <div class="panel">
+          <div id="table-container"></div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const HEADERS = <?= JSON.stringify(headers) ?>;
+
+      let allOrders = [];
+      let filteredOrders = [];
+
+      function init() {
+        buildFilterInputs();
+        attachEvents();
+        fetchOrders();
+      }
+
+      function attachEvents() {
+        document.getElementById('refresh').addEventListener('click', fetchOrders);
+        document.getElementById('apply').addEventListener('click', applyFilters);
+        document.getElementById('clear').addEventListener('click', clearFilters);
+      }
+
+      function buildFilterInputs() {
+        const container = document.getElementById('filters');
+        container.innerHTML = '';
+
+        HEADERS.forEach((header) => {
+          const wrapper = document.createElement('div');
+          wrapper.className = 'filter-field';
+
+          const label = document.createElement('label');
+          label.textContent = header;
+          label.setAttribute('for', `filter-${header}`);
+
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.id = `filter-${header}`;
+          input.dataset.header = header;
+          input.placeholder = 'Metin arayın';
+          input.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+              applyFilters();
+            }
+          });
+
+          wrapper.appendChild(label);
+          wrapper.appendChild(input);
+          container.appendChild(wrapper);
+        });
+      }
+
+      function fetchOrders() {
+        setStatus('Siparişler yükleniyor...', true);
+        google.script.run
+          .withSuccessHandler((result) => {
+            allOrders = Array.isArray(result.orders) ? result.orders : [];
+            filteredOrders = [...allOrders];
+            if (result.errorMessage) {
+              setStatus(result.errorMessage, false);
+            } else {
+              setStatus(`Toplam ${filteredOrders.length} sipariş yüklendi.`, false);
+            }
+            renderTable(filteredOrders);
+          })
+          .withFailureHandler((error) => {
+            console.error(error);
+            setStatus('Siparişler yüklenemedi. Lütfen tekrar deneyin.', false);
+            renderEmptyTable();
+          })
+          .getCodOrders();
+      }
+
+      function getFilterValues() {
+        const inputs = document.querySelectorAll('#filters input');
+        return Array.from(inputs).reduce((acc, input) => {
+          const value = input.value.trim();
+          if (value) {
+            acc[input.dataset.header] = value.toLowerCase();
+          }
+          return acc;
+        }, {});
+      }
+
+      function applyFilters() {
+        const filters = getFilterValues();
+
+        if (!Object.keys(filters).length) {
+          filteredOrders = [...allOrders];
+        } else {
+          filteredOrders = allOrders.filter((order) => {
+            return HEADERS.every((header) => {
+              const query = filters[header];
+              if (!query) {
+                return true;
+              }
+              const cellValue = String(order[header] || '').toLowerCase();
+              return cellValue.includes(query);
+            });
+          });
+        }
+
+        setStatus(`Filtrelenmiş sonuç: ${filteredOrders.length} sipariş.`, false);
+        renderTable(filteredOrders);
+      }
+
+      function clearFilters() {
+        document.querySelectorAll('#filters input').forEach((input) => {
+          input.value = '';
+        });
+        filteredOrders = [...allOrders];
+        setStatus(`Toplam ${filteredOrders.length} sipariş görüntüleniyor.`, false);
+        renderTable(filteredOrders);
+      }
+
+      function renderTable(data) {
+        const container = document.getElementById('table-container');
+        container.innerHTML = '';
+
+        if (!data.length) {
+          renderEmptyTable();
+          return;
+        }
+
+        const table = document.createElement('table');
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+
+        HEADERS.forEach((header) => {
+          const th = document.createElement('th');
+          th.textContent = header;
+          headerRow.appendChild(th);
+        });
+
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+
+        data.forEach((order) => {
+          const row = document.createElement('tr');
+          HEADERS.forEach((header) => {
+            const cell = document.createElement('td');
+            cell.textContent = order[header] || '';
+            row.appendChild(cell);
+          });
+          tbody.appendChild(row);
+        });
+
+        table.appendChild(tbody);
+        container.appendChild(table);
+      }
+
+      function renderEmptyTable() {
+        const container = document.getElementById('table-container');
+        container.innerHTML = '';
+
+        const emptyState = document.createElement('div');
+        emptyState.className = 'empty-state';
+        emptyState.textContent = 'Gösterilecek sipariş bulunamadı.';
+        container.appendChild(emptyState);
+      }
+
+      function setStatus(message, isLoading) {
+        const status = document.getElementById('status');
+        if (isLoading) {
+          status.innerHTML = `<span class="loader"></span>${message}`;
+        } else {
+          status.textContent = message;
+        }
+      }
+
+      window.addEventListener('load', init);
+    </script>
+  </body>
+</html>
